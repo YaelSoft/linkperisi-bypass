@@ -1,86 +1,102 @@
 import time
 import random
 import re
-import httpx
 import asyncio
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from fake_useragent import UserAgent
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
-WORKING_PROXIES = []
+WORKING_PROXIES = [] # fetch_and_test_proxies tarafından doldurulacak
 
-# --- 1. PROXY MOTORU (GitHub Repoları) ---
-async def fetch_and_test_proxies():
-    global WORKING_PROXIES
-    sources = [
-        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"
-    ]
-    while True:
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(sources[0], timeout=10)
-                WORKING_PROXIES = re.findall(r'\d+\.\d+\.\d+\.\d+:\d+', resp.text)[:30]
-        except: pass
-        await asyncio.sleep(300)
-
-# --- 2. ANTİ-BOT DRIVER ---
 def get_driver():
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    
-    # Cloudflare'i Kandıran Kritik Ayarlar
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    
-    ua = UserAgent()
-    options.add_argument(f"user-agent={ua.random}")
-    
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
     if WORKING_PROXIES:
         options.add_argument(f"--proxy-server=http://{random.choice(WORKING_PROXIES)}")
-
-    driver = webdriver.Chrome(options=options)
     
-    # Bot izlerini tarayıcıdan silen JavaScript
+    driver = webdriver.Chrome(options=options)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
-# --- 3. BYPASS İŞLEMİ ---
 def start_bypass_process(url):
     driver = None
     try:
         driver = get_driver()
-        driver.set_page_load_timeout(45)
+        wait = WebDriverWait(driver, 20)
+        
+        # --- ADIM 1: LİNKPERİSİ ANA SAYFA ---
         driver.get(url)
+        print("📍 Linkperisi açıldı, 'Başlat' aranıyor...")
         
-        # Cloudflare'in "Bekleyin" ekranını geçmesi için gerçekçi süre
-        time.sleep(15) 
-        
-        # Eğer hala Cloudflare'de takılı kaldıysa (url'de cloudflare geçiyorsa)
-        if "cloudflare" in driver.current_url:
-            return {"status": "error", "msg": "Cloudflare engeli aşılamadı, tekrar dene."}
+        # Senin JS mantığın: 'Doğrulamayı Başlat' butonunu bul ve tıkla
+        start_script = """
+        const btn = Array.from(document.querySelectorAll('a, button, .btn, [class*="btn"]')).find(el => {
+            const text = el.textContent.trim().toLowerCase();
+            return text.includes("başlat") || text.includes("baslat") || text.includes("start");
+        });
+        if (btn) { btn.click(); return true; }
+        return false;
+        """
+        driver.execute_script(start_script)
+        time.sleep(5) # Google sekmesinin/yönlendirmenin açılmasını bekle
 
+        # --- ADIM 2: GOOGLE ARAMA VEYA HEDEF SİTE ---
+        # Eğer sistem Google'a attıysa ilk siteye tıkla
+        if "google.com" in driver.current_url:
+            print("📍 Google sayfası algılandı, ilk siteye giriliyor...")
+            google_script = """
+            const link = document.querySelector('#search a[href^="http"]:not([href*="google.com"])');
+            if (link) { window.location.href = link.href; return true; }
+            return false;
+            """
+            driver.execute_script(google_script)
+            time.sleep(5)
+
+        # --- ADIM 3: SİTE İÇİ REKLAM TIKLAMA ---
+        print("📍 Siteye girildi, reklam otomasyonu başlıyor...")
+        ad_script = """
+        const adSelectors = ['iframe[src*="doubleclick"]', 'ins.adsbygoogle', 'a[href*="googleadservices"]', '[id*="ad-"]'];
+        for (const s of adSelectors) {
+            const ad = document.querySelector(s);
+            if (ad) { ad.click(); return true; }
+        }
+        return false;
+        """
+        driver.execute_script(ad_script)
+        print("⏳ Reklam bekleme süresi (10sn)...")
+        time.sleep(10)
+
+        # --- ADIM 4: LİNKPERİSİNE DÖNÜŞ VE KONTROL ---
+        # Genelde bu aşamada driver.get(url) ile geri dönmek veya pencere değiştirmek gerekir
+        driver.get(url)
+        time.sleep(5)
+        
+        print("📍 'Kontrol Et' butonuna basılıyor...")
+        control_script = """
+        const btn = Array.from(document.querySelectorAll('a, button, .btn')).find(el => {
+            const text = el.textContent.trim().toLowerCase();
+            return text.includes("kontrol") || text.includes("check") || text.includes("verify");
+        });
+        if (btn) { btn.click(); return true; }
+        return false;
+        """
+        driver.execute_script(control_script)
+        time.sleep(8) # Senin JS'deki 8 saniyelik bekleme
+
+        # --- ADIM 5: FİNAL LİNKİ AL ---
         source = driver.page_source
-        # Linkperisi'nin arkasındaki asıl linki cımbızla çekiyoruz
-        links = re.findall(r'href=[\'"]?(https?://[^\'" >]+)', source)
+        final_links = re.findall(r'href=[\'"]?(https?://[^\'" >]+)', source)
+        target = next((l for l in final_links if "linkperisi" not in l and "google" not in l), driver.current_url)
         
-        target = None
-        for l in links:
-            # Reklam, google veya cloudflare linklerini ele
-            if all(x not in l for x in ["linkperisi", "google", "cloudflare", "facebook", "twitter"]):
-                target = l
-                break
-        
-        if target:
-            return {"status": "success", "url": target}
-        else:
-            # Link bulunamadıysa gidilen son adresi ver (Bazen direkt yönlenir)
-            return {"status": "success", "url": driver.current_url}
-            
-    except Exception:
-        return {"status": "error", "msg": "Zaman aşımı (Proxy/Site Meşgul)"}
+        return {"status": "success", "url": target}
+
+    except Exception as e:
+        return {"status": "error", "msg": f"Otomasyon Hatası: {str(e)}"}
     finally:
         if driver: driver.quit()
