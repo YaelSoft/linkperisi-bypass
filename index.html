@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YaelSoft |Link Bypass</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-color: #00f3ff;
+            --bg-color: #0b0c10;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        /* ARKA PLAN ANİMASYONU */
+        .background {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(0, 243, 255, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(196, 77, 255, 0.05), transparent 25%);
+            z-index: 1;
+        }
+        .particles {
+            position: absolute;
+            width: 100%; height: 100%;
+            background-image: url('https://raw.githubusercontent.com/JulianLaval/canvas-particle-network/master/img/demo-bg.png');
+            opacity: 0.2;
+            animation: move 20s linear infinite;
+            z-index: 0;
+        }
+        @keyframes move { from {transform: scale(1);} to {transform: scale(1.1);} }
+
+        /* KUTU TASARIMI */
+        .glass-panel {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            padding: 50px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            color: var(--neon-color);
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+            letter-spacing: 2px;
+        }
+        p { color: #888; margin-bottom: 30px; font-size: 1.1rem; }
+
+        /* TOPLU LİNK İÇİN TEXTAREA EKLENDİ (Tasarım aynı) */
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            transition: 0.3s;
+            box-sizing: border-box;
+            resize: none;
+        }
+        textarea:focus {
+            border-color: var(--neon-color);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #00f3ff, #0066ff);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.4);
+        }
+
+        /* İLERLEME ÇUBUĞU (YENİ) */
+        .progress-container {
+            display: none;
+            width: 100%;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: var(--neon-color);
+        }
+        .progress-bar-bg {
+            width: 100%; height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px; overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #00f3ff, #0066ff);
+            transition: 0.3s;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        /* SONUÇ KUTUSU (Scroll Eklendi) */
+        #result-box {
+            margin-top: 25px;
+            display: none;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        .loading {
+            display: none; margin-top: 20px; color: var(--neon-color);
+            font-size: 0.9rem; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% {opacity: 0.5;} 50% {opacity: 1;} 100% {opacity: 0.5;} }
+    </style>
+</head>
+<body>
+
+    <div class="particles"></div>
+    <div class="background"></div>
+
+    <div class="glass-panel">
+        <h1>LINKPERISI</h1>
+        <p>Gelişmiş Link Bypass Servisi</p>
+
+        <textarea id="urlInput" placeholder="Reklamlı linkleri buraya yapıştır...&#10;(Her satıra 1 link gelecek şekilde)"></textarea>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-stats">
+                <span id="progressText">İşleniyor: 0 / 0</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+        </div>
+
+        <button onclick="bypass()">İŞLEMİ BAŞLAT</button>
+        
+        <div class="loading" id="loader">
+            SİSTEM DEVREDE... LİNKLER GEÇİLİYOR...
+        </div>
+
+        <div id="result-box"></div>
+    </div>
+
+    <script>
+        async function bypass() {
+            const input = document.getElementById('urlInput');
+            const loader = document.getElementById('loader');
+            const resultBox = document.getElementById('result-box');
+            const progContainer = document.getElementById('progressContainer');
+            const progText = document.getElementById('progressText');
+            const progBar = document.getElementById('progressBar');
+            
+            if(!input.value) return;
+
+            // Linkleri satır satır ayır ve boşlukları temizle
+            const urls = input.value.split('\n').filter(u => u.trim() !== '');
+            if(urls.length === 0) return;
+
+            // UI Reset
+            resultBox.style.display = 'none';
+            resultBox.innerHTML = '';
+            loader.style.display = 'block';
+            progContainer.style.display = 'block';
+            
+            for(let i = 0; i < urls.length; i++) {
+                const url = urls[i].trim();
+                progText.innerText = `İşleniyor: ${i+1} / ${urls.length}`;
+                progBar.style.width = `${((i+1)/urls.length)*100}%`;
+                
+                try {
+                    // Backend API İsteği
+                    const req = await fetch('/api/bypass', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({url: url})
+                    });
+                    const res = await req.json();
+
+                    loader.style.display = 'none';
+                    resultBox.style.display = 'block';
+
+                    // Her link için yeni bir satır oluştur
+                    const item = document.createElement('div');
+                    item.style.marginBottom = '8px';
+                    item.style.paddingBottom = '8px';
+                    item.style.borderBottom = '1px solid #222';
+
+                    if(res.status === 'success') {
+                        item.innerHTML = `✅ <a href="${res.url}" target="_blank" style="color:#00ff00; text-decoration:none;">${res.url}</a>`;
+                    } else {
+                        item.innerHTML = `❌ <span style="color:#ff0000;">Hata (Zaman Aşımı)</span>`;
+                    }
+                    resultBox.appendChild(item);
+
+                } catch (e) {
+                    loader.style.display = 'none';
+                    resultBox.style.display = 'block';
+                    const item = document.createElement('div');
+                    item.innerHTML = `❌ <span style="color:#ff0000;">Sunucu Bağlantı Hatası</span>`;
+                    resultBox.appendChild(item);
+                }
+            }
+            loader.style.display = 'none';
+            progText.innerText = "TÜM İŞLEMLER TAMAMLANDI!";
+        }
+    </script>
+
+</body>
+</html>
