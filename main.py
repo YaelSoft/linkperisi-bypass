@@ -1,6 +1,8 @@
 import time
 import asyncio
 import re
+import httpx
+import random
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,32 +12,64 @@ from selenium.webdriver.chrome.options import Options
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-def get_stealth_driver():
+WORKING_PROXIES = []
+
+# --- 1. PROXY REPOLARI BURADA (HER 5 DAKİKADA BİR ÇEKER) ---
+async def fetch_proxies():
+    global WORKING_PROXIES
+    # En taze ve ücretsiz proxy listeleri
+    sources = [
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+        "https://raw.githubusercontent.com/shiftytr/proxy-list/master/proxy.txt"
+    ]
+    while True:
+        proxies = []
+        async with httpx.AsyncClient() as client:
+            for url in sources:
+                try:
+                    resp = await client.get(url, timeout=10)
+                    # IP:PORT formatını ayıkla
+                    found = re.findall(r'\d+\.\d+\.\d+\.\d+:\d+', resp.text)
+                    proxies.extend(found)
+                except: continue
+        
+        if proxies:
+            random.shuffle(proxies)
+            WORKING_PROXIES = proxies[:100] # En fazla 100 tanesini sakla
+            print(f"✅ Proxy Havuzu Güncellendi: {len(WORKING_PROXIES)} IP hazır.")
+        
+        await asyncio.sleep(300) # 5 dakikada bir yenile
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(fetch_proxies())
+
+# --- 2. GİZLİ (STEALTH) DRIVER ---
+def get_driver():
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    
-    # 🕵️ GİZLİLİK AYARLARI (Cloudflare'i Uyutmak İçin)
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument("window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+    
+    # Havuzdan rastgele bir proxy seç
+    if WORKING_PROXIES:
+        proxy = random.choice(WORKING_PROXIES)
+        options.add_argument(f"--proxy-server=http://{proxy}")
+        print(f"📡 Kullanılan Proxy: {proxy}")
 
     driver = webdriver.Chrome(options=options)
-    
-    # Bot izlerini silen kritik script
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
+# --- 3. ANA SAYFA VE BYPASS ---
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    try:
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except:
-        return "Slayer Engine Active"
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.post("/api/bypass")
 async def api_bypass(request: Request):
@@ -45,32 +79,29 @@ async def api_bypass(request: Request):
     def process():
         driver = None
         try:
-            driver = get_stealth_driver()
-            # Cloudflare'in çözülmesi için bekleme süresini artırıyoruz
-            driver.set_page_load_timeout(45) 
+            driver = get_driver()
+            driver.set_page_load_timeout(35) # Zaman aşımını 35 saniyeye çıkardık
             driver.get(url)
             
-            # 1. Cloudflare challenge'ın geçilmesi için gerçekçi bir bekleme
-            time.sleep(10) 
+            # Cloudflare'in botu tartması için bekleme
+            time.sleep(8) 
             
-            # 2. Eğer hala Cloudflare sayfasındaysak veya engellendiysek:
-            if "cloudflare" in driver.current_url or "challenge" in driver.page_source:
-                return {"status": "error", "msg": "Cloudflare Engelini Geçemedim, Tekrar Dene"}
-
-            # 3. Sayfa kaynağındaki asıl linki çek (Senin metot)
-            page_source = driver.page_source
-            links = re.findall(r'href=[\'"]?([^\'" >]+)', page_source)
+            # Sayfa yönlendirmesi bittiyse veya butona basılmışsa yeni linki çek
+            final_url = driver.current_url
             
-            target = None
-            for l in links:
-                if "http" in l and "linkperisi" not in l and "google" not in l and "facebook" not in l:
-                    target = l
-                    break
+            # Eğer hala reklamlı sitedeyse sayfa kaynağını tara
+            if "linkperisi" in final_url or "cloudflare" in final_url:
+                source = driver.page_source
+                # Harici bir link ara
+                links = re.findall(r'href=[\'"]?(https?://[^\'" >]+)', source)
+                for l in links:
+                    if "linkperisi" not in l and "google" not in l and "cloudflare" not in l:
+                        return {"status": "success", "url": l}
             
-            return {"status": "success", "url": target if target else driver.current_url}
+            return {"status": "success", "url": final_url}
                 
         except Exception as e:
-            return {"status": "error", "msg": "Sistem Meşgul veya Proxy Engelli"}
+            return {"status": "error", "msg": "Zaman Aşımı (Sunucu/Proxy Meşgul)"}
         finally:
             if driver: driver.quit()
 
