@@ -210,10 +210,12 @@
                 
                 try {
                     // Backend API İsteği
-                    const req = await fetch('https://yaelsoft-linkbypasser.onrender.com/api/bypass', {
+                    const req = await fetch('/api/bypass', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({url: url})
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: input.value })
                     });
                     const res = await req.json();
 
