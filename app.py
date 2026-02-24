@@ -1,16 +1,12 @@
-import asyncio
-from bypass_motoru import fetch_and_test_proxies
 import os
+import asyncio
+import threading
 import sqlite3
 import datetime
 from flask import Flask, render_template, request, jsonify
-from bypass_motoru import start_bypass_process
+from bypass_motoru import start_bypass_process, fetch_and_test_proxies
 
-app = Flask(__name__, template_folder='.') # index.html aynı klasörde olduğu için
-
-    
-    import threading
-    threading.Thread(target=run_loop, daemon=True).start()
+app = Flask(__name__, template_folder='.')
 
 DB_NAME = "history.db"
 
@@ -21,18 +17,17 @@ def init_db():
         conn.commit()
 
 init_db()
+
+# --- YENİ NESİL PROXY BAŞLATICI ---
 def start_proxy_engine():
     def run_loop():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        # bypass_motoru içindeki otonom fonksiyonun
-        from bypass_motoru import fetch_and_test_proxies
         loop.run_until_complete(fetch_and_test_proxies())
     
-    import threading
     threading.Thread(target=run_loop, daemon=True).start()
 
-# Flask 3.0+ için uygulama ayağa kalkarken çalıştır
+# Flask ayağa kalktığında proxy motorunu ateşler
 with app.app_context():
     start_proxy_engine()
 
@@ -46,7 +41,7 @@ def api_bypass():
     url = data.get('url')
     user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     
-    if not url: return jsonify({"status": "error", "msg": "Link boş olamaz!"})
+    if not url: return jsonify({"status": "error", "msg": "Link boş!"})
 
     result = start_bypass_process(url)
     
