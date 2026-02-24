@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Slayer | Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body { background: #0b0c10; color: #fff; font-family: 'Rajdhani', sans-serif; padding: 30px; margin: 0; }
+        .header { border-bottom: 2px solid #00f3ff; padding-bottom: 10px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+        .header h1 { margin: 0; color: #00f3ff; text-shadow: 0 0 10px #00f3ff; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .card { background: rgba(255,255,255,0.02); border: 1px solid #333; border-radius: 15px; padding: 25px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; color: #c44dff; border-bottom: 1px solid #c44dff; padding-bottom: 10px; }
+        
+        /* Liste Tasarımı (Yakalanan Linkler) */
+        .vault-list { max-height: 300px; overflow-y: auto; }
+        .vault-item { display: flex; justify-content: space-between; padding: 10px; background: rgba(0,0,0,0.4); border-bottom: 1px solid #222; margin-bottom: 5px; border-radius: 5px; font-size: 0.9rem; }
+        .vault-item a { color: #00ff00; text-decoration: none; }
+        
+        /* Lisans Üretme Tasarımı */
+        input { background: #000; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; width: 100%; font-family: inherit; margin-bottom: 15px; box-sizing: border-box; outline: none; }
+        input:focus { border-color: #00f3ff; }
+        button { background: #00f3ff; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-family: inherit; font-size: 1.1rem; }
+        button:hover { box-shadow: 0 0 15px #00f3ff; }
+        #keyResult { margin-top: 15px; color: #00f3ff; font-size: 1.2rem; text-align: center; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <script>
+        const pass = prompt("Slayer Yetki Şifresi:");
+        if(pass !== "ata800") {
+            document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20%'>YETKİSİZ ERİŞİM - IP KAYDEDİLDİ</h1>";
+            throw new Error("Giriş Engellendi");
+        }
+    </script>
+
+    <div class="header">
+        <h1>SLAYER V1.0</h1>
+        <span style="color:#888;">Admin Session Active</span>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>🔑 LİSANS ÜRETİCİ</h2>
+            <p style="color:#888; margin-top:0;">Müşteriler için yetki anahtarı oluşturun.</p>
+            <label>Gün Sayısı:</label>
+            <input type="number" id="days" value="30">
+            <label>Link Limiti (0 = Sınırsız):</label>
+            <input type="number" id="limit" value="0">
+            <button onclick="generateKey()">ANAHTAR ÜRET</button>
+            <div id="keyResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>👁️ VAULT (Yakalanan Linkler)</h2>
+            <p style="color:#888; margin-top:0;">Sistem tarafından ayrılan özel linkler.</p>
+            <div class="vault-list" id="vaultList">
+                <div class="vault-item">
+                    <a href="#" target="_blank">https://linkperisi.com/qwe123xz...</a>
+                    <span style="color:#888;">10 dk önce</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateKey() {
+            const prefix = "SLAYER-";
+            const randomStr = Math.random().toString(36).substr(2, 10).toUpperCase();
+            document.getElementById('keyResult').innerText = prefix + randomStr;
+        }
+    </script>
+</body>
+</html>
