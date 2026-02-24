@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+flask
 selenium
 fake-useragent
 httpx
