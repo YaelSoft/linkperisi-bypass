@@ -8,12 +8,6 @@ from bypass_motoru import start_bypass_process
 
 app = Flask(__name__, template_folder='.') # index.html aynı klasörde olduğu için
 
-@app.before_first_request
-def start_proxy_engine():
-    def run_loop():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(fetch_and_test_proxies())
     
     import threading
     threading.Thread(target=run_loop, daemon=True).start()
@@ -27,6 +21,20 @@ def init_db():
         conn.commit()
 
 init_db()
+def start_proxy_engine():
+    def run_loop():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        # bypass_motoru içindeki otonom fonksiyonun
+        from bypass_motoru import fetch_and_test_proxies
+        loop.run_until_complete(fetch_and_test_proxies())
+    
+    import threading
+    threading.Thread(target=run_loop, daemon=True).start()
+
+# Flask 3.0+ için uygulama ayağa kalkarken çalıştır
+with app.app_context():
+    start_proxy_engine()
 
 @app.route('/')
 def home():
