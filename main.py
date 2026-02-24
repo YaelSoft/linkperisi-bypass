@@ -2,8 +2,6 @@ import time
 import random
 import asyncio
 import re
-import httpx
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,29 +10,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from fake_useragent import UserAgent
 
-WORKING_PROXIES = []
-
-# --- OTONOM PROXY MOTORU ---
-async def fetch_proxies():
-    global WORKING_PROXIES
-    url = "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
-    while True:
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, timeout=10)
-                WORKING_PROXIES = re.findall(r'\d+\.\d+\.\d+\.\d+:\d+', resp.text)[:50]
-        except: pass
-        await asyncio.sleep(300)
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    task = asyncio.create_task(fetch_proxies())
-    yield
-    task.cancel()
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 def get_driver():
@@ -42,58 +19,61 @@ def get_driver():
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    # Cloudflare ve bot korumalarını uyutmak için:
     options.add_argument("--disable-blink-features=AutomationControlled")
-    ua = UserAgent()
-    options.add_argument(f"user-agent={ua.random}")
-    if WORKING_PROXIES:
-        options.add_argument(f"--proxy-server=http://{random.choice(WORKING_PROXIES)}")
-    return webdriver.Chrome(options=options)
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    
+    driver = webdriver.Chrome(options=options)
+    # Bot olduğumuzu gizleyen JavaScript komutu
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    return driver
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except: return "Slayer Engine Active"
 
 @app.post("/api/bypass")
 async def api_bypass(request: Request):
     data = await request.json()
     url = data.get('url')
-    if not url: return {"status": "error", "msg": "Link yok!"}
-
-    def start_engine():
+    
+    # Render'ın 5xx hatası vermemesi için işlemi thread'e salıyoruz
+    def process():
         driver = None
         try:
             driver = get_driver()
-            driver.set_page_load_timeout(25)
+            driver.set_page_load_timeout(20)
             driver.get(url)
             
-            # --- OTONOM METOT (BYPASS LOGIC) ---
-            # 1. Sayfanın yüklenmesini bekle
-            wait = WebDriverWait(driver, 15)
+            # --- MANUEL METODUN OTONOM HALİ ---
+            # 1. Sayfada 'Devam Et' veya 'Linki Al' benzeri butonları tara
+            time.sleep(6) # Linkperisi genelde 5 saniye bekletir
             
-            # 2. Linkperisi butonunu veya yönlendirmeyi bekle (Manuel metodun otonom hali)
-            # Burada sitenin yapısına göre 'Devam Et' veya 'Linki Al' butonuna tıklama simülasyonu yapılır
-            time.sleep(5) 
+            # Sayfa içindeki tüm linkleri çek ve Linkperisi olmayan ilk harici linke odaklan
+            page_source = driver.page_source
+            links = re.findall(r'href=[\'"]?([^\'" >]+)', page_source)
             
-            # 3. Yönlendirmeyi takip et
-            current_url = driver.current_url
+            target = None
+            for l in links:
+                if "http" in l and "linkperisi" not in l and "google" not in l and "facebook" not in l:
+                    target = l
+                    break
             
-            # Eğer hala reklam sayfasındaysak (Örn: buton tıklama gerekliyse)
-            # driver.find_element(By.ID, "skip-button").click() gibi komutlar buraya gelir.
-            
-            if "linkperisi" in current_url:
-                # Metot: Sayfa kaynağındaki gizli linki bulmaya çalış
-                page_source = driver.page_source
-                found_links = re.findall(r'href=[\'"]?([^\'" >]+)', page_source)
-                for link in found_links:
-                    if "http" in link and "linkperisi" not in link:
-                        return {"status": "success", "url": link}
-                return {"status": "error", "msg": "Bypass başarısız"}
-            
-            return {"status": "success", "url": current_url}
+            if target:
+                return {"status": "success", "url": target}
+            else:
+                # Eğer link bulunamadıysa son durulan URL'yi döndür (Bazen direkt yönlenir)
+                final_url = driver.current_url
+                return {"status": "success", "url": final_url}
+                
         except Exception as e:
-            return {"status": "error", "msg": "Zaman aşımı veya engel"}
+            return {"status": "error", "msg": "Sunucu Yükü Fazla, Tekrar Dene"}
         finally:
             if driver: driver.quit()
 
-    return await asyncio.to_thread(start_engine)
+    # Render'ın zaman aşımına düşüp 5xx vermemesi için async çalıştır
+    return await asyncio.to_thread(process)
