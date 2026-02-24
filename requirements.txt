@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+selenium
+fake-useragent
+httpx
+pyrogram
+tgcrypto
